@@ -1,31 +1,9 @@
-from lp import lp
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 import os
+import scipy.optimize as opt
+from matplotlib import pyplot as plt
 
-def main():
-
-    dir_name = 'C:\\Users\\Cobin\\Desktop\\Personal\\Projects\\4M17_Coursework_1\\2022-data\\2022-data\\Q3'
-    array_A, array_x0 = openFile(dir_name, 'A', 'x0')
-    A = array_A
-    x = array_x0
-    col_norm = np.linalg.norm(A, axis=0)
-    A_normalized = np.divide(A, np.transpose(col_norm))
-
-    # Set the optimality tolerance of the linear programing solver
-    tol_lp = 100
-    b = A_normalized @ x
-
-    x_lp = lp(A_normalized, b, tol_lp)
-    x_lp[np.absolute(x_lp) <= 1e-4] = 0
-    plt.figure(1)
-    plt.title('Original Signal')
-    plt.plot(x)
-    plt.figure(2)
-    plt.title('Reconstructed Signal')
-    plt.plot(x_lp, color='red')
-    plt.show()
 
 def openFile(dir_name, data_A, data_b):
     array_A = pd.read_csv(os.path.join(dir_name, data_A + "." + 'csv'), sep=',', header=None).to_numpy()
@@ -33,6 +11,130 @@ def openFile(dir_name, data_A, data_b):
     return array_A, array_b
 
 
-if __name__ == "__main__":
-    main()
+def problem(x):
+    return l2_norm(np.dot(A, x) - b) ** 2 + l * l1_norm(x)
 
+
+def l1_norm(x):
+    return np.sum(np.absolute(x))
+
+
+def l2_norm(x):
+    return np.sqrt(np.sum(np.power(x, 2)))
+
+
+def inf_norm(x):
+    return np.max(np.absolute(x))
+
+
+def f(X):
+    x = X[:n]
+    u = X[n:]
+    result = t * l2_norm(np.dot(A, x) - b) ** 2
+    for i in range(n):
+        result += t * l * u[i]
+    return result + barrier(X)
+
+
+def grad_f(X):
+    x = X[:n]
+    u = X[n:]
+    g1 = 2 * t * np.matmul(A.T, np.dot(A, x) - b)
+    for i in range(n):
+        g1[i] += (2 * x[i]) / (u[i] ** 2 - x[i] ** 2)
+    g2 = t * l * np.ones(n)
+    for i in range(n):
+        g2[i] -= (2 * u[i]) / (u[i] ** 2 - x[i] ** 2)
+    return np.concatenate((g1, g2))
+
+
+def hessian(X):
+    x = X[:n]
+    u = X[n:]
+    h_11 = np.zeros(n)
+    h_22 = np.zeros(n)
+    for i in range(n):
+        h_11[i] += (-4 * x[i] * u[i]) / (u[i] ** 2 - x[i] ** 2) ** 2
+        h_22[i] += (2 * (u[i] ** 2 + x[i] ** 2)) / (u[i] ** 2 - x[i] ** 2) ** 2
+    H_12 = np.diag(h_11)
+    H_22 = np.diag(h_22)
+    H_11 = 2 * t * np.dot(A.T, A) + H_22
+    return np.block([[H_11, H_12], [H_12, H_22]])
+
+
+def barrier(X):
+    x = X[:n]
+    u = X[n:]
+    result = 0
+    for i in range(n):
+        if u[i] - x[i] < 0 or u[i] + x[i] < 0:
+            return np.inf
+        result -= np.log(u[i] - x[i]) + np.log(u[i] + x[i])
+    return result
+
+
+def G(v):
+    return -0.25 * np.dot(v, v) - np.dot(v, b)
+
+
+def interior_point():
+    iteration = 0
+    x = np.concatenate((0.5 * np.random.rand(n), np.ones(n)))
+    dx = -np.dot(np.linalg.inv(hessian(x)), grad_f(x))
+
+    while -np.dot(grad_f(x).T, dx) / 2 > stopping_crit:
+        tau = exact_linesearch(f, x, dx)
+        x = x + tau * dx
+        dx = -np.dot(np.linalg.inv(hessian(x)), grad_f(x))
+
+        print("Iteration number {}".format(iteration))
+        print("phi(x,u): " + str(f(x)))
+        print(problem(x[:n]))
+        print(-np.dot(grad_f(x).T, dx) / 2)
+        print("-------------")
+
+        iteration += 1
+    return x
+
+
+def exact_linesearch(f, x, dx):
+    g = lambda tau: f(x + tau * dx)
+    res = opt.minimize_scalar(g)
+    return res.x
+
+dir_name = 'C:\\Users\\Cobin\\Desktop\\Personal\\Projects\\4M17_Coursework_1\\2022-data\\2022-data\\Q3'
+
+A, x0 = openFile(dir_name, 'A', 'x0')
+
+(m, n) = 60, 256
+
+b = np.dot(A, x0)
+
+l_max = inf_norm(2 * np.dot(A.T, b))
+l = 0.01 * l_max
+t = 0.01
+stopping_crit = 1e-10
+best_x = interior_point()
+
+print("Final minimised value: " + str(problem(best_x[:n])))
+
+fig, axs = plt.subplots(3, 1)
+plt.subplots_adjust(top=0.92, bottom=0.08, left=0.10, right=0.95, hspace=0.25,
+                    wspace=0.35)
+axs[0].plot(x0)
+axs[0].grid(True)
+axs[0].set_xlabel('i')
+axs[0].set_ylabel('$x_i$')
+axs[0].set_title('Original signal')
+axs[1].plot(best_x[:n] - np.linalg.lstsq(A, b)[0])
+axs[1].grid(True)
+axs[1].set_xlabel('i')
+axs[1].set_ylabel('$x_i$')
+axs[1].set_title('Reconstructed signal')
+axs[2].plot(np.linalg.lstsq(A, b)[0])
+axs[2].grid(True)
+axs[2].set_xlabel('i')
+axs[2].set_ylabel('$x_i$')
+axs[2].set_title('Minimum energy reconstruction')
+
+plt.show()

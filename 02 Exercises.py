@@ -39,10 +39,11 @@ def main():
     plt.subplot(1, 2, 2)
     plt.plot(iterations, dual_residuals)
     plt.yscale('log')
-    plt.xlabel('Iterations')
-    plt.ylabel('Dual residual')
+    plt.xlabel('Iteration number')
+    plt.ylabel('Error in minimisation')
     plt.title('Interior point method applied on the random convex QP')
 
-
+if __name__ == "__main__":
+    main()
 
 
