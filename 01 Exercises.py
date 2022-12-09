@@ -23,13 +23,13 @@ def main():
 
     dir_name = 'C:\\Users\\Cobin\\Desktop\\Personal\\Projects\\4M17_Coursework_1\\2022-data\\2022-data\\Q1'
 
-    array_A, array_b = openFile(dir_name, 'A4', 'b4')
+    array_A, array_b = openFile(dir_name, 'A5', 'b5')
     l1_sol, l1_opt = l1(array_A,array_b)
     l2_sol, l2_opt = l2(array_A,array_b)
     linf_sol, linf_opt = linf(array_A,array_b)
-    hist_plot(l1_opt,'l1')
-    hist_plot(l2_opt,'l2')
-    hist_plot(linf_opt,'l_inf')
+    hist_plot(l1_opt,'$\ell_1$')
+    hist_plot(l2_opt,'$\ell_2$')
+    hist_plot(linf_opt,'$\ell_\infty$')
 
 def openFile(dir_name, data_A, data_b):
     array_A = pd.read_csv(os.path.join(dir_name, data_A + "." + 'csv'), sep=',', header=None).to_numpy()
@@ -95,7 +95,6 @@ def linf(array_A, array_b):
     print("\nThe optimal value is", prob.value)
     print("The optimal x is")
     print(x.value)
-    #   print("The norm of the residual is ", cp.norm(A @ x - b, p=2).value)
     return prob.value, x.value
 
 def hist_plot(plot_data, label):
@@ -105,9 +104,10 @@ def hist_plot(plot_data, label):
     print("Freedman–Diaconis number of bins:", bins)
     plt.hist(plot_data,  bins=bins, density = True);
     plt.ylabel("Frequency")
-    plt.xlabel(label)
-    plt.title("Histogram");
+    plt.xlabel('Residual')
+    plt.title(str(label) + '-norm Residual Normalised Histogram with Bins = '+ str(bins));
     plt.xlim(-0.2, 0.2)
+    plt.ylim(0,20)
     plt.show()
 
 
